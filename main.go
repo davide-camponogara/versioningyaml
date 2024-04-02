@@ -31,7 +31,7 @@ func main() {
 	if source, ok := config.(ConfigV1); ok {
 		fmt.Println("Is of correct Type")
 		var configv2 ConfigV2
-		up(&source, &configv2, migrationUp)
+		MigrateOne(&source, &configv2, migrationUp)
 
 		fmt.Printf("%#v", configv2)
 		WriteYaml(configv2, "configv2.yaml")
@@ -187,4 +187,34 @@ func LoadConfigVersioned(path string) (interface{}, int) {
 	config := reflect.Indirect(reflect.ValueOf(configValue)).Interface()
 
 	return config, version
+}
+
+// Migrate apply migration from config source to config destination objects
+func MigrateOne(source interface{}, destination interface{}, migration map[string]func(interface{}) interface{}) {
+	// Get the type and value of the destination struct
+	destValue := reflect.ValueOf(destination).Elem()
+
+	// Get the type and value of the source struct
+	sourceValue := reflect.ValueOf(source).Elem()
+
+	for i := 0; i < destValue.NumField(); i++ {
+		field := destValue.Type().Field(i)
+		fieldName := field.Name
+
+		if f, ok := migration[fieldName]; ok {
+			newValue := f(source)
+			destField := destValue.FieldByName(fieldName)
+			if destField.IsValid() && destField.CanSet() {
+				destField.Set(reflect.ValueOf(newValue))
+			}
+		} else {
+			sourceField := sourceValue.FieldByName(fieldName)
+			if sourceField.IsValid() {
+				destField := destValue.FieldByName(fieldName)
+				if destField.IsValid() && destField.CanSet() {
+					destField.Set(sourceField)
+				}
+			}
+		}
+	}
 }
