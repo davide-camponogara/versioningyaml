@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"versioningyaml/versions"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,9 +15,9 @@ var longComments = map[string]string{
 
 func main() {
 	// Create an example Address object with test values
-	address := ConfigV1{
+	address := versions.ConfigV1{
 		Version: 1,
-		Street: Street{
+		Street: versions.Street{
 			Field1: 444,
 			Name:   "iohfnocoijas",
 		},
@@ -28,10 +29,10 @@ func main() {
 	config, version := LoadConfigVersioned("address.yaml")
 	fmt.Printf("config version %d: %#v", version, config)
 
-	if source, ok := config.(ConfigV1); ok {
+	if source, ok := config.(versions.ConfigV1); ok {
 		fmt.Println("Is of correct Type")
-		var configv2 ConfigV2
-		MigrateOne(&source, &configv2, migrationUp)
+		var configv2 versions.ConfigV2
+		MigrateOne(&source, &configv2, versions.MigrationUp)
 
 		fmt.Printf("%#v", configv2)
 		WriteYaml(configv2, "configv2.yaml")
@@ -176,13 +177,13 @@ func LoadConfigVersioned(path string) (interface{}, int) {
 	version := GetVersion(path)
 
 	// Get the appropriate struct type based on version
-	configType, ok := configVersions[version]
-	if !ok {
-		panic(fmt.Sprintf("unsupported version: %d", version))
+	configType, _ := findByVersion(version)
+	if configType == nil {
+		panic("error finding version")
 	}
 
 	// Load YAML into the appropriate struct type
-	configValue := reflect.New(reflect.TypeOf(configType)).Interface()
+	configValue := reflect.New(reflect.TypeOf(configType.Config)).Interface()
 	LoadYAML(path, configValue)
 	config := reflect.Indirect(reflect.ValueOf(configValue)).Interface()
 
@@ -202,7 +203,7 @@ func MigrateOne(source interface{}, destination interface{}, migration map[strin
 		fieldName := field.Name
 
 		if f, ok := migration[fieldName]; ok {
-			newValue := f(source)
+			newValue := f(sourceValue.Interface())
 			destField := destValue.FieldByName(fieldName)
 			if destField.IsValid() && destField.CanSet() {
 				destField.Set(reflect.ValueOf(newValue))
@@ -217,4 +218,13 @@ func MigrateOne(source interface{}, destination interface{}, migration map[strin
 			}
 		}
 	}
+}
+
+func findByVersion(version int) (*versions.ConfigVersion, int) {
+	for i, cv := range versions.ConfigVersions {
+		if cv.Version == version {
+			return &cv, i
+		}
+	}
+	return nil, -1
 }
