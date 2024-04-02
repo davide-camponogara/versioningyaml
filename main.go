@@ -12,22 +12,9 @@ var longComments = map[string]string{
 	"$comm1": "Test commento numeor 1",
 }
 
-type Street struct {
-	Field1 int    `yaml:"Field1"`
-	Name   string `yaml:"Name" comment:"ciao prova indentazione\ntest bello" lineComment:"prova line"`
-}
-
-// Address represents the address details
-type Address struct {
-	Version int    `yaml:"version"`
-	Street  Street `yaml:"street" comment:"$comm1"`
-	City    string `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-	ZipCode int    `yaml:"zipcode" comment:"Test comment for zipcode"`
-}
-
 func main() {
 	// Create an example Address object with test values
-	address := Address{
+	address := ConfigV1{
 		Version: 1,
 		Street: Street{
 			Field1: 444,
@@ -37,13 +24,21 @@ func main() {
 		ZipCode: 4421243,
 	}
 	WriteYaml(address, "address.yaml")
+
 	config, version := LoadConfigVersioned("address.yaml")
 	fmt.Printf("config version %d: %#v", version, config)
-	if _, ok := config.(Address); ok {
+
+	if source, ok := config.(ConfigV1); ok {
 		fmt.Println("Is of correct Type")
+		var configv2 ConfigV2
+		up(&source, &configv2, migrationUp)
+
+		fmt.Printf("%#v", configv2)
+		WriteYaml(configv2, "configv2.yaml")
 	} else {
 		panic("NO")
 	}
+
 }
 
 // WriteYaml create a yaml file with name [name] from the tagged [data] struct
