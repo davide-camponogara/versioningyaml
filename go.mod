@@ -1,4 +1,4 @@
-module versioningyaml
+module github.com/davide-camponogara/versioningyaml
 
 go 1.22.1
 
