@@ -31,11 +31,10 @@ func main() {
 
 	if source, ok := config.(versions.ConfigV1); ok {
 		fmt.Println("Is of correct Type")
-		var configv2 versions.ConfigV2
-		MigrateOne(&source, &configv2, versions.MigrationUp)
+		configv2 := MigrateUp(&source, &versions.ConfigV2{}).(*versions.ConfigV2)
 
 		fmt.Printf("%#v", configv2)
-		WriteYaml(configv2, "configv2.yaml")
+		WriteYaml(*configv2, "configv2.yaml")
 	} else {
 		panic("NO")
 	}
@@ -227,4 +226,25 @@ func findByVersion(version int) (*versions.ConfigVersion, int) {
 		}
 	}
 	return nil, -1
+}
+
+func MigrateUp(source interface{}, destination interface{}) versions.Config {
+	var vStart, vFinish int
+	if s, ok := source.(versions.Config); ok {
+		_, vStart = findByVersion(s.V())
+	}
+	if d, ok := destination.(versions.Config); ok {
+		_, vFinish = findByVersion(d.V())
+	}
+
+	var current = source
+	for i := vStart; i < vFinish; i++ {
+		//next := versions.ConfigVersions[i+1].Config
+		t := reflect.New(reflect.TypeOf(versions.ConfigVersions[i+1].Config))
+		fmt.Print(t)
+		next := t.Interface()
+		MigrateOne(current, next, versions.ConfigVersions[i+1].Up) // Pass `next` directly
+		current = next
+	}
+	return current.(versions.Config)
 }
