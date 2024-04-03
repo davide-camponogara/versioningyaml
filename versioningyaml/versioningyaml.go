@@ -47,7 +47,7 @@ func SetLongComments(lc map[string]string) {
 }
 
 // WriteYaml create a yaml file with name [name] from the tagged [data] struct
-func WriteYaml(data interface{}, path string) {
+func WriteYaml(data utils.Config, path string) {
 	// Create a YAML nodes representation of the Address struct
 	yamlObject, err := GenerateYAMLobject(data)
 	if err != nil {
@@ -177,7 +177,7 @@ func getVersion(path string) int {
 }
 
 // LoadConfigVersioned loads a config file as a struct of the related version and returns also the version
-func LoadConfigVersioned(path string) (interface{}, int) {
+func LoadConfigVersioned(path string) (utils.Config, int) {
 	version := getVersion(path)
 
 	// Get the appropriate struct type based on version
@@ -191,7 +191,7 @@ func LoadConfigVersioned(path string) (interface{}, int) {
 	LoadYAML(path, configValue)
 	config := reflect.Indirect(reflect.ValueOf(configValue)).Interface()
 
-	return config, version
+	return config.(utils.Config), version
 }
 
 // Migrate apply migration from config source to config destination objects
