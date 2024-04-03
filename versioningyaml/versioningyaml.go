@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"versioningyaml/utils"
+
+	"github.com/davide-camponogara/versioningyaml/utils"
 
 	"gopkg.in/yaml.v3"
 )

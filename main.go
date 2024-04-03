@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	vyaml "versioningyaml/versioningyaml"
-	versions "versioningyaml/versions_test"
+
+	vyaml "github.com/davide-camponogara/versioningyaml/versioningyaml"
+	versions "github.com/davide-camponogara/versioningyaml/versions_test"
 )
 
 func main() {
