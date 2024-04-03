@@ -1,2 +1,3 @@
 versions_test
-./*.yaml
+
+*.yaml
