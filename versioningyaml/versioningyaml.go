@@ -196,11 +196,16 @@ func LoadConfigVersioned(path string) (utils.Config, int) {
 
 // Migrate apply migration from config source to config destination objects
 func MigrateOne(source interface{}, destination interface{}, migration utils.CustomMigration) {
-	// Get the type and value of the destination struct
+	// Get the value of the destination struct
 	destValue := reflect.ValueOf(destination).Elem()
 
-	// Get the type and value of the source struct
-	sourceValue := reflect.ValueOf(source).Elem()
+	// Get the value of the source struct
+	var sourceValue reflect.Value
+	if reflect.ValueOf(source).Kind() == reflect.Ptr {
+		sourceValue = reflect.ValueOf(source).Elem()
+	} else {
+		sourceValue = reflect.ValueOf(source)
+	}
 
 	for i := 0; i < destValue.NumField(); i++ {
 		field := destValue.Type().Field(i)
