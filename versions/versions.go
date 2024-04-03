@@ -1,84 +1,37 @@
 package versions
 
-type Migration map[string]func(c any) any
+import (
+	"versioningyaml/utils"
+)
 
-type ConfigVersion struct {
-	Config Config
-	Up     Migration
-	Down   Migration
+// LongComments is a map containing long comments
+// by convenction a reference to a long comment is denoted with a $ in form of the name
+var LongComments = map[string]string{
+	"$comm1": "Test commento numeor 1",
 }
 
-type Config interface {
-	V() int
-}
-
-var ConfigVersions = []ConfigVersion{
+// ConfigVersions contains an ordered list of the versions of the yaml file
+// every entry is a ConfigVersion object that contains:
+//   - the Config struct
+//   - the CustomMigration UP
+//   - the CustomMigration DOWN
+//
+// the custom migrations are unes when one have to manipulate the fileds instead
+// if a field doesn't change from the version before or is one is a new (standalone) field a CustomMigration is not needed
+var ConfigVersions = []utils.ConfigVersion{
 	{
-		ConfigV1{},
-		nil,
-		nil,
+		Config: ConfigV1{},
+		Up:     nil,
+		Down:   nil,
 	},
 	{
-		ConfigV2{},
-		MigrationUp,
-		nil,
+		Config: ConfigV2{},
+		Up:     UpV2,
+		Down:   nil,
 	},
 	{
-		ConfigV3{},
-		MigrationUpV3,
-		nil,
+		Config: ConfigV3{},
+		Up:     UpV3,
+		Down:   DownV3,
 	},
-}
-
-var MigrationUp = Migration{
-	"City": func(c any) any {
-		conf := c.(ConfigV1)
-		return conf.City + " " + conf.Street.Name
-	},
-}
-
-var MigrationUpV3 = Migration{
-	"TestV3": func(c any) any {
-		conf := c.(ConfigV2)
-		return float32(conf.Street.Field1)
-	},
-}
-
-// Address represents the address details
-type Street struct {
-	Field1 int    `yaml:"Field1"`
-	Name   string `yaml:"Name" comment:"ciao prova indentazione\ntest bello" lineComment:"prova line"`
-}
-
-// Address represents the address details
-type ConfigV1 struct {
-	Version int    `yaml:"version"`
-	Street  Street `yaml:"street" comment:"$comm1"`
-	City    string `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-	ZipCode int    `yaml:"zipcode" comment:"Test comment for zipcode"`
-}
-
-func (ConfigV1) V() int {
-	return 1
-}
-
-type ConfigV2 struct {
-	Version int    `yaml:"version"`
-	Street  Street `yaml:"street" comment:"$comm1"`
-	City    string `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-}
-
-func (ConfigV2) V() int {
-	return 2
-}
-
-type ConfigV3 struct {
-	Version int     `yaml:"version"`
-	Street  Street  `yaml:"street" comment:"$comm1"`
-	City    string  `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-	TestV3  float32 `yaml:"testv3" comment:"test v3"`
-}
-
-func (ConfigV3) V() int {
-	return 3
 }

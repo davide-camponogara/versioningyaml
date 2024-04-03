@@ -4,37 +4,23 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"versioningyaml/utils"
 	"versioningyaml/versions"
 
 	"gopkg.in/yaml.v3"
 )
 
-var longComments = map[string]string{
-	"$comm1": "Test commento numeor 1",
-}
-
 func main() {
-	// Create an example Address object with test values
-	address := versions.ConfigV1{
-		Version: 1,
-		Street: versions.Street{
-			Field1: 444,
-			Name:   "iohfnocoijas",
-		},
-		City:    "Testville",
-		ZipCode: 4421243,
-	}
-	WriteYaml(address, "address.yaml")
 
-	config, version := LoadConfigVersioned("address.yaml")
+	config, version := LoadConfigVersioned("configv3.yaml")
 	fmt.Printf("config version %d: %#v", version, config)
 
-	if source, ok := config.(versions.ConfigV1); ok {
+	if source, ok := config.(versions.ConfigV3); ok {
 		fmt.Println("Is of correct Type")
-		configv2 := MigrateUp(&source, &versions.ConfigV2{}).(*versions.ConfigV2)
+		configv2 := MigrateDown(&source, &versions.ConfigV2{}).(*versions.ConfigV2)
 
 		fmt.Printf("%#v", configv2)
-		WriteYaml(*configv2, "configv2.yaml")
+		WriteYaml(*configv2, "config_test_v2.yaml")
 	} else {
 		panic("NO")
 	}
@@ -84,11 +70,11 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 		commentTag := field.Tag.Get("comment")         // Get the comment tag value
 		lineCommentTag := field.Tag.Get("lineComment") // Get the lineComment tag value
 
-		if com, ok := longComments[commentTag]; ok { // Check if comment is key of a long comment and subsitute it
+		if com, ok := versions.LongComments[commentTag]; ok { // Check if comment is key of a long comment and subsitute it
 			commentTag = com
 		}
 
-		if com, ok := longComments[lineCommentTag]; ok { // Check if lineComment is key of a long comment and subsitute it
+		if com, ok := versions.LongComments[lineCommentTag]; ok { // Check if lineComment is key of a long comment and subsitute it
 			lineCommentTag = com
 		}
 
@@ -190,7 +176,7 @@ func LoadConfigVersioned(path string) (interface{}, int) {
 }
 
 // Migrate apply migration from config source to config destination objects
-func MigrateOne(source interface{}, destination interface{}, migration versions.Migration) {
+func MigrateOne(source interface{}, destination interface{}, migration utils.CustomMigration) {
 	// Get the type and value of the destination struct
 	destValue := reflect.ValueOf(destination).Elem()
 
@@ -204,7 +190,7 @@ func MigrateOne(source interface{}, destination interface{}, migration versions.
 		if fieldName == "Version" {
 			destField := destValue.FieldByName(fieldName)
 			if destField.IsValid() && destField.CanSet() {
-				destField.Set(reflect.ValueOf(destination.(versions.Config).V()))
+				destField.Set(reflect.ValueOf(destination.(utils.Config).V()))
 			}
 		} else if f, ok := migration[fieldName]; ok {
 			newValue := f(sourceValue.Interface())
@@ -219,12 +205,14 @@ func MigrateOne(source interface{}, destination interface{}, migration versions.
 				if destField.IsValid() && destField.CanSet() {
 					destField.Set(sourceField)
 				}
+			} else {
+				panic(fmt.Sprintf("error while migrating value: %v", fieldName))
 			}
 		}
 	}
 }
 
-func findByVersion(version int) (*versions.ConfigVersion, int) {
+func findByVersion(version int) (*utils.ConfigVersion, int) {
 	for i, cv := range versions.ConfigVersions {
 		if cv.Config.V() == version {
 			return &cv, i
@@ -233,12 +221,12 @@ func findByVersion(version int) (*versions.ConfigVersion, int) {
 	return nil, -1
 }
 
-func MigrateUp(source interface{}, destination interface{}) versions.Config {
+func MigrateUp(source interface{}, destination interface{}) utils.Config {
 	var vStart, vFinish int
-	if s, ok := source.(versions.Config); ok {
+	if s, ok := source.(utils.Config); ok {
 		_, vStart = findByVersion(s.V())
 	}
-	if d, ok := destination.(versions.Config); ok {
+	if d, ok := destination.(utils.Config); ok {
 		_, vFinish = findByVersion(d.V())
 	}
 
@@ -248,15 +236,15 @@ func MigrateUp(source interface{}, destination interface{}) versions.Config {
 		MigrateOne(current, next, versions.ConfigVersions[i+1].Up)
 		current = next
 	}
-	return current.(versions.Config)
+	return current.(utils.Config)
 }
 
-func MigrateDown(source interface{}, destination interface{}) versions.Config {
+func MigrateDown(source interface{}, destination interface{}) utils.Config {
 	var vStart, vFinish int
-	if s, ok := source.(versions.Config); ok {
+	if s, ok := source.(utils.Config); ok {
 		_, vStart = findByVersion(s.V())
 	}
-	if d, ok := destination.(versions.Config); ok {
+	if d, ok := destination.(utils.Config); ok {
 		_, vFinish = findByVersion(d.V())
 	}
 
@@ -266,5 +254,5 @@ func MigrateDown(source interface{}, destination interface{}) versions.Config {
 		MigrateOne(current, next, versions.ConfigVersions[i].Down)
 		current = next
 	}
-	return current.(versions.Config)
+	return current.(utils.Config)
 }

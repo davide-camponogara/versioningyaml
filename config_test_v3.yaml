@@ -1,0 +1,13 @@
+version: 3
+# Test commento numeor 1
+street:
+    Field1: 444
+    # ciao prova indentazione
+    # test bello
+    Name: iohfnocoijas # prova line
+# Test comment for city
+city: Testville iohfnocoijas # test
+# test v3
+testv3: 444
+# test v3
+testv3_2: 0
