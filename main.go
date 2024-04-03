@@ -190,7 +190,7 @@ func LoadConfigVersioned(path string) (interface{}, int) {
 }
 
 // Migrate apply migration from config source to config destination objects
-func MigrateOne(source interface{}, destination interface{}, migration map[string]func(interface{}) interface{}) {
+func MigrateOne(source interface{}, destination interface{}, migration versions.Migration) {
 	// Get the type and value of the destination struct
 	destValue := reflect.ValueOf(destination).Elem()
 
@@ -201,7 +201,12 @@ func MigrateOne(source interface{}, destination interface{}, migration map[strin
 		field := destValue.Type().Field(i)
 		fieldName := field.Name
 
-		if f, ok := migration[fieldName]; ok {
+		if fieldName == "Version" {
+			destField := destValue.FieldByName(fieldName)
+			if destField.IsValid() && destField.CanSet() {
+				destField.Set(reflect.ValueOf(destination.(versions.Config).V()))
+			}
+		} else if f, ok := migration[fieldName]; ok {
 			newValue := f(sourceValue.Interface())
 			destField := destValue.FieldByName(fieldName)
 			if destField.IsValid() && destField.CanSet() {
@@ -221,7 +226,7 @@ func MigrateOne(source interface{}, destination interface{}, migration map[strin
 
 func findByVersion(version int) (*versions.ConfigVersion, int) {
 	for i, cv := range versions.ConfigVersions {
-		if cv.Version == version {
+		if cv.Config.V() == version {
 			return &cv, i
 		}
 	}
@@ -239,11 +244,26 @@ func MigrateUp(source interface{}, destination interface{}) versions.Config {
 
 	var current = source
 	for i := vStart; i < vFinish; i++ {
-		//next := versions.ConfigVersions[i+1].Config
-		t := reflect.New(reflect.TypeOf(versions.ConfigVersions[i+1].Config))
-		fmt.Print(t)
-		next := t.Interface()
-		MigrateOne(current, next, versions.ConfigVersions[i+1].Up) // Pass `next` directly
+		next := reflect.New(reflect.TypeOf(versions.ConfigVersions[i+1].Config)).Interface()
+		MigrateOne(current, next, versions.ConfigVersions[i+1].Up)
+		current = next
+	}
+	return current.(versions.Config)
+}
+
+func MigrateDown(source interface{}, destination interface{}) versions.Config {
+	var vStart, vFinish int
+	if s, ok := source.(versions.Config); ok {
+		_, vStart = findByVersion(s.V())
+	}
+	if d, ok := destination.(versions.Config); ok {
+		_, vFinish = findByVersion(d.V())
+	}
+
+	var current = source
+	for i := vStart; i > vFinish; i-- {
+		next := reflect.New(reflect.TypeOf(versions.ConfigVersions[i-1].Config)).Interface()
+		MigrateOne(current, next, versions.ConfigVersions[i].Down)
 		current = next
 	}
 	return current.(versions.Config)

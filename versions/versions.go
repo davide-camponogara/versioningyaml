@@ -1,10 +1,11 @@
 package versions
 
+type Migration map[string]func(c any) any
+
 type ConfigVersion struct {
-	Version int
-	Config  Config
-	Up      map[string]func(interface{}) interface{}
-	Down    map[string]func(interface{}) interface{}
+	Config Config
+	Up     Migration
+	Down   Migration
 }
 
 type Config interface {
@@ -13,26 +14,33 @@ type Config interface {
 
 var ConfigVersions = []ConfigVersion{
 	{
-		1,
 		ConfigV1{},
 		nil,
 		nil,
 	},
 	{
-		2,
 		ConfigV2{},
 		MigrationUp,
 		nil,
 	},
+	{
+		ConfigV3{},
+		MigrationUpV3,
+		nil,
+	},
 }
 
-var MigrationUp = map[string]func(interface{}) interface{}{
-	"Version": func(c interface{}) interface{} {
-		return 2
-	},
-	"City": func(c interface{}) interface{} {
+var MigrationUp = Migration{
+	"City": func(c any) any {
 		conf := c.(ConfigV1)
 		return conf.City + " " + conf.Street.Name
+	},
+}
+
+var MigrationUpV3 = Migration{
+	"TestV3": func(c any) any {
+		conf := c.(ConfigV2)
+		return float32(conf.Street.Field1)
 	},
 }
 
@@ -62,4 +70,15 @@ type ConfigV2 struct {
 
 func (ConfigV2) V() int {
 	return 2
+}
+
+type ConfigV3 struct {
+	Version int     `yaml:"version"`
+	Street  Street  `yaml:"street" comment:"$comm1"`
+	City    string  `yaml:"city" comment:"Test comment for city" lineComment:"test"`
+	TestV3  float32 `yaml:"testv3" comment:"test v3"`
+}
+
+func (ConfigV3) V() int {
+	return 3
 }
