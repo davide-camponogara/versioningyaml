@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/davide-camponogara/versioningyaml/utils"
 
@@ -105,7 +106,7 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 
 		fieldName := field.Tag.Get("yaml") // Get the yaml tag value
 		if fieldName == "" {
-			fieldName = field.Name // Use the field name as the key if yaml tag is empty
+			fieldName = strings.ToLower(field.Name) // Use the field name as the key if yaml tag is empty
 		}
 
 		if nextIndent {
@@ -170,7 +171,7 @@ func LoadYAML(path string, object interface{}) error {
 // getVersion returns version of config file
 func getVersion(path string) (int, error) {
 	wrapErr := func(err error) error {
-		return fmt.Errorf("loading config versioned: %w", err)
+		return fmt.Errorf("getting version: %w", err)
 	}
 	var data interface{}
 	err := LoadYAML(path, &data)
