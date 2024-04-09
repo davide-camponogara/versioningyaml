@@ -1,6 +1,7 @@
 package versioningyaml
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -47,29 +48,34 @@ func SetLongComments(lc map[string]string) {
 }
 
 // WriteYaml create a yaml file with name [name] from the tagged [data] struct
-func WriteYaml(data utils.Config, path string) {
+func WriteYaml(data utils.Config, path string) error {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("writing yaml: %w", err)
+	}
 	// Create a YAML nodes representation of the Address struct
 	yamlObject, err := GenerateYAMLobject(data)
 	if err != nil {
-		panic(fmt.Errorf("error generating YAML: %w", err))
+		return wrapErr(fmt.Errorf("error generating YAML: %w", err))
 	}
 	yamlBytes, err := yaml.Marshal(yamlObject)
 	if err != nil {
-		panic(fmt.Errorf("error marshalling YAML: %w", err))
+		return wrapErr(fmt.Errorf("error marshalling YAML: %w", err))
 	}
 
 	// Write the YAML to a file
 	file, err := os.Create(path)
 	if err != nil {
-		panic(fmt.Errorf("error creating file: %w", err))
+		return wrapErr(fmt.Errorf("error creating file: %w", err))
 	}
 	defer file.Close()
 
 	_, err = file.Write(yamlBytes)
 	if err != nil {
-		panic(fmt.Errorf("error writing YAML to file: %w", err))
+		return wrapErr(fmt.Errorf("error writing YAML to file: %w", err))
 	}
 	fmt.Printf("%v file created successfully.", path)
+
+	return nil
 }
 
 // generateYAMLobject generates Node object formatted for a yaml file
@@ -143,59 +149,81 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 }
 
 // LoadYAML loads a yaml file as object
-func LoadYAML(path string, object interface{}) {
+func LoadYAML(path string, object interface{}) error {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("loading yaml: %w", err)
+	}
 	file, err := os.Open(path)
 	if err != nil {
-		panic(fmt.Errorf("error opening file: %w", err))
+		return wrapErr(fmt.Errorf("error opening file: %w", err))
 	}
 	defer file.Close()
 
 	// Read the content of the file
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(object); err != nil {
-		panic(fmt.Errorf("error decoding YAML: %w", err))
+		return wrapErr(fmt.Errorf("error decoding YAML: %w", err))
 	}
+	return nil
 }
 
 // getVersion returns version of config file
-func getVersion(path string) int {
+func getVersion(path string) (int, error) {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("loading config versioned: %w", err)
+	}
 	var data interface{}
-	LoadYAML(path, &data)
+	err := LoadYAML(path, &data)
+	if err != nil {
+		return 0, wrapErr(err)
+	}
 
 	// Assert data to a map[string]interface{}
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
-		panic("invalid YAML format")
+		return 0, wrapErr(errors.New("invalid YAML format"))
 	}
 
 	// Handle different versions based on the "version" field
 	version, ok := dataMap["version"].(int)
 	if !ok {
-		panic("version field is not an integer")
+		return 0, wrapErr(errors.New("version field is not an integer"))
 	}
-	return version
+	return version, nil
 }
 
 // LoadConfigVersioned loads a config file as a struct of the related version and returns also the version
-func LoadConfigVersioned(path string) (utils.Config, int) {
-	version := getVersion(path)
+func LoadConfigVersioned(path string) (utils.Config, int, error) {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("loading config versioned: %w", err)
+	}
+	version, err := getVersion(path)
+	if err != nil {
+		return nil, 0, wrapErr(err)
+	}
 
 	// Get the appropriate struct type based on version
 	configType, _ := findByVersion(version)
 	if configType == nil {
-		panic("error finding version")
+		return nil, 0, wrapErr(errors.New("error finding version"))
 	}
 
 	// Load YAML into the appropriate struct type
 	configValue := reflect.New(reflect.TypeOf(configType.Config)).Interface()
-	LoadYAML(path, configValue)
+	err = LoadYAML(path, configValue)
+	if err != nil {
+		return nil, 0, wrapErr(err)
+	}
 	config := reflect.Indirect(reflect.ValueOf(configValue)).Interface()
 
-	return config.(utils.Config), version
+	return config.(utils.Config), version, nil
 }
 
 // Migrate apply migration from config source to config destination objects
-func MigrateOne(source interface{}, destination interface{}, migration utils.CustomMigration) {
+func MigrateOne(source interface{}, destination interface{}, migration utils.CustomMigration) error {
+	/*wrapErr := func(err error) error {
+		return fmt.Errorf("migrating one version: %w", err)
+	}*/
 	// Get the value of the destination struct
 	destValue := reflect.ValueOf(destination).Elem()
 
@@ -230,10 +258,11 @@ func MigrateOne(source interface{}, destination interface{}, migration utils.Cus
 					destField.Set(sourceField)
 				}
 			} else {
-				panic(fmt.Sprintf("error while migrating value: %v", fieldName))
+				continue
 			}
 		}
 	}
+	return nil
 }
 
 func findByVersion(version int) (*utils.ConfigVersion, int) {
@@ -247,40 +276,75 @@ func findByVersion(version int) (*utils.ConfigVersion, int) {
 
 // MigrateUp applies the UP migrations form yaml [source] to [destination] returning the
 // fullfilled [destination] version (Config interface)
-func MigrateUp(source interface{}, destination interface{}) utils.Config {
-	var vStart, vFinish int
-	if s, ok := source.(utils.Config); ok {
-		_, vStart = findByVersion(s.V())
+func MigrateUp(source interface{}, destination interface{}) (utils.Config, error) {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("migrating up yaml: %w", err)
 	}
-	if d, ok := destination.(utils.Config); ok {
-		_, vFinish = findByVersion(d.V())
+
+	var vStart, vFinish int
+	s, ok := source.(utils.Config)
+	if !ok {
+		return nil, wrapErr(errors.New("source doesn't implement Config interface"))
+	}
+	_, vStart = findByVersion(s.V())
+	if vStart < 0 {
+		return nil, wrapErr(errors.New("version not find in source"))
+	}
+
+	d, ok := destination.(utils.Config)
+	if !ok {
+		return nil, wrapErr(errors.New("destination doesn't implement Config interface"))
+	}
+	_, vFinish = findByVersion(d.V())
+	if vFinish < 0 {
+		return nil, wrapErr(errors.New("version not find in destination"))
 	}
 
 	var current = source
 	for i := vStart; i < vFinish; i++ {
 		next := reflect.New(reflect.TypeOf(configVersions[i+1].Config)).Interface()
-		MigrateOne(current, next, configVersions[i+1].Up)
+		err := MigrateOne(current, next, configVersions[i+1].Up)
+		if err != nil {
+			return nil, wrapErr(err)
+		}
 		current = next
 	}
-	return current.(utils.Config)
+	return current.(utils.Config), nil
 }
 
 // MigrateDown applies the DOWN migrations form yaml [source] to [destination] returning the
 // fullfilled [destination] version (Config interface)
-func MigrateDown(source interface{}, destination interface{}) utils.Config {
-	var vStart, vFinish int
-	if s, ok := source.(utils.Config); ok {
-		_, vStart = findByVersion(s.V())
+func MigrateDown(source interface{}, destination interface{}) (utils.Config, error) {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("migrating up yaml: %w", err)
 	}
-	if d, ok := destination.(utils.Config); ok {
-		_, vFinish = findByVersion(d.V())
+	var vStart, vFinish int
+	s, ok := source.(utils.Config)
+	if !ok {
+		return nil, wrapErr(errors.New("source doesn't implement Config interface"))
+	}
+	_, vStart = findByVersion(s.V())
+	if vStart < 0 {
+		return nil, wrapErr(errors.New("version not find in source"))
+	}
+
+	d, ok := destination.(utils.Config)
+	if !ok {
+		return nil, wrapErr(errors.New("destination doesn't implement Config interface"))
+	}
+	_, vFinish = findByVersion(d.V())
+	if vFinish < 0 {
+		return nil, wrapErr(errors.New("version not find in destination"))
 	}
 
 	var current = source
 	for i := vStart; i > vFinish; i-- {
 		next := reflect.New(reflect.TypeOf(configVersions[i-1].Config)).Interface()
-		MigrateOne(current, next, configVersions[i].Down)
+		err := MigrateOne(current, next, configVersions[i].Down)
+		if err != nil {
+			return nil, wrapErr(err)
+		}
 		current = next
 	}
-	return current.(utils.Config)
+	return current.(utils.Config), nil
 }

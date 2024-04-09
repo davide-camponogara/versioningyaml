@@ -11,10 +11,14 @@ func main() {
 	vyaml.SetConfigVersions(versions.ConfigVersions)
 	vyaml.SetLongComments(versions.LongComments)
 
-	config, version := vyaml.LoadConfigVersioned("configv3.yaml")
+	config, version, err := vyaml.LoadConfigVersioned("configv2.yaml")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("config version %d: %#v", version, config)
 
-	configv2 := vyaml.MigrateDown(&versions.ConfigV3{}, &versions.ConfigV2{}).(*versions.ConfigV2)
+	c, err := vyaml.MigrateUp(config, &versions.ConfigV3{})
+	configv2 := c.(*versions.ConfigV3)
 
 	fmt.Printf("%#v", configv2)
 	vyaml.WriteYaml(*configv2, "config_test_v2.yaml")
