@@ -255,30 +255,60 @@ func MigrateOne(source interface{}, destination interface{}, migration utils.Cus
 		field := destValue.Type().Field(i)
 		fieldName := field.Name
 
-		if fieldName == "Version" {
-			destField := destValue.FieldByName(fieldName)
-			if destField.IsValid() && destField.CanSet() {
-				destField.Set(reflect.ValueOf(destination.(utils.Config).V()))
-			}
-		} else if f, ok := migration[fieldName]; ok {
-			newValue := f(sourceValue.Interface())
-			destField := destValue.FieldByName(fieldName)
-			if destField.IsValid() && destField.CanSet() {
-				destField.Set(reflect.ValueOf(newValue))
-			}
-		} else {
-			sourceField := sourceValue.FieldByName(fieldName)
-			if sourceField.IsValid() {
-				destField := destValue.FieldByName(fieldName)
-				if destField.IsValid() && destField.CanSet() {
-					destField.Set(sourceField)
-				}
-			} else {
-				continue
-			}
+		// if field is of struct type
+		if field.Type.Kind() == reflect.Struct {
+			sourceStruct := sourceValue.FieldByName(fieldName)
+			destStruct := destValue.FieldByName(fieldName)
+			migrateStruct(sourceStruct, destStruct, fieldName, migration, destination.(utils.Config).V())
+
+		} else { // if field is not of type struct
+			migrateField(sourceValue, destValue, fieldName, migration, destination.(utils.Config).V())
 		}
 	}
 	return nil
+}
+
+func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, version int) {
+	// get field name from dotted path
+	spl := strings.Split(fieldPath, ".")
+	fieldName := spl[len(spl)-1]
+
+	if f, ok := migration[fieldPath]; ok {
+		newValue := f(sourceValue.Interface())
+		destField := destValue.FieldByName(fieldName)
+		if destField.IsValid() && destField.CanSet() {
+			destField.Set(reflect.ValueOf(newValue))
+		}
+	} else if fieldName == "Version" {
+		destField := destValue.FieldByName(fieldName)
+		if destField.IsValid() && destField.CanSet() {
+			destField.Set(reflect.ValueOf(version))
+		}
+	} else {
+		sourceField := sourceValue.FieldByName(fieldName)
+		if sourceField.IsValid() {
+			destField := destValue.FieldByName(fieldName)
+			if destField.IsValid() && destField.CanSet() {
+				destField.Set(sourceField)
+			}
+		}
+	}
+}
+
+func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structName string, migration utils.CustomMigration, version int) {
+	for i := 0; i < destValue.NumField(); i++ {
+		field := destValue.Type().Field(i)
+		fieldName := field.Name
+
+		// if field is of struct type
+		if field.Type.Kind() == reflect.Struct {
+			sourceStruct := sourceValue.FieldByName(fieldName)
+			destStruct := destValue.FieldByName(fieldName)
+			migrateStruct(sourceStruct, destStruct, structName+"."+fieldName, migration, version)
+		} else { // if field is not of type struct
+			migrateField(sourceValue, destValue, structName+"."+fieldName, migration, version)
+		}
+	}
 }
 
 func findByVersion(version int) (*utils.ConfigVersion, int) {
