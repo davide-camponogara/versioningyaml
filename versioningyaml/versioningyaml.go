@@ -259,22 +259,22 @@ func MigrateOne(source interface{}, destination interface{}, migration utils.Cus
 		if field.Type.Kind() == reflect.Struct {
 			sourceStruct := sourceValue.FieldByName(fieldName)
 			destStruct := destValue.FieldByName(fieldName)
-			migrateStruct(sourceStruct, destStruct, fieldName, migration, destination.(utils.Config).V())
+			migrateStruct(sourceStruct, destStruct, fieldName, migration, sourceValue, destination.(utils.Config).V())
 
 		} else { // if field is not of type struct
-			migrateField(sourceValue, destValue, fieldName, migration, destination.(utils.Config).V())
+			migrateField(sourceValue, destValue, fieldName, migration, sourceValue, destination.(utils.Config).V())
 		}
 	}
 	return nil
 }
 
-func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, version int) {
+func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) {
 	// get field name from dotted path
 	spl := strings.Split(fieldPath, ".")
 	fieldName := spl[len(spl)-1]
 
 	if f, ok := migration[fieldPath]; ok {
-		newValue := f(sourceValue.Interface())
+		newValue := f(sourceConfig.Interface())
 		destField := destValue.FieldByName(fieldName)
 		if destField.IsValid() && destField.CanSet() {
 			destField.Set(reflect.ValueOf(newValue))
@@ -295,7 +295,7 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 	}
 }
 
-func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structName string, migration utils.CustomMigration, version int) {
+func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structName string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) {
 	for i := 0; i < destValue.NumField(); i++ {
 		field := destValue.Type().Field(i)
 		fieldName := field.Name
@@ -304,9 +304,9 @@ func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structNam
 		if field.Type.Kind() == reflect.Struct {
 			sourceStruct := sourceValue.FieldByName(fieldName)
 			destStruct := destValue.FieldByName(fieldName)
-			migrateStruct(sourceStruct, destStruct, structName+"."+fieldName, migration, version)
+			migrateStruct(sourceStruct, destStruct, structName+"."+fieldName, migration, sourceConfig, version)
 		} else { // if field is not of type struct
-			migrateField(sourceValue, destValue, structName+"."+fieldName, migration, version)
+			migrateField(sourceValue, destValue, structName+"."+fieldName, migration, sourceConfig, version)
 		}
 	}
 }
