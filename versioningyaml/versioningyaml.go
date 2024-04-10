@@ -36,6 +36,16 @@ func SetConfigVersions(cv []utils.ConfigVersion) {
 	configVersions = cv
 }
 
+// defaultVersion contains the default version of a .yaml where the field "version" is not present
+var defaultVersion int = 1
+
+// SetDefaultVersion setter for defaultVersion
+//
+// defaultVersion contains the default version of a .yaml where the field "version" is not present
+func SetDefaultVersion(defVersion int) {
+	defaultVersion = defVersion
+}
+
 // LongComments is a map containing long comments
 // by convenction a reference to a long comment is denoted with a $ in form of the name
 var longComments map[string]string
@@ -186,7 +196,12 @@ func getVersion(path string) (int, error) {
 	}
 
 	// Handle different versions based on the "version" field
-	version, ok := dataMap["version"].(int)
+	vField, ok := dataMap["version"]
+	if !ok {
+		return defaultVersion, nil
+	}
+
+	version, ok := vField.(int)
 	if !ok {
 		return 0, wrapErr(errors.New("version field is not an integer"))
 	}
