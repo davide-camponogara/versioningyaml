@@ -136,8 +136,18 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 		// If field is of type struct
 		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
 			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface())
+			keyNode.HeadComment = "\n" + keyNode.HeadComment
+			nextIndent = true
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
-			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Elem().Interface())
+			val := reflect.ValueOf(data).Field(i).Elem()
+			if val.Type().Kind() == reflect.UnsafePointer {
+				valueNode = &yaml.Node{
+					Kind:        yaml.ScalarNode,
+					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+					LineComment: lineCommentTag,
+				}
+			}
+			valueNode, err = GenerateYAMLobject(val.Interface())
 			keyNode.HeadComment = "\n" + keyNode.HeadComment
 			nextIndent = true
 		} else {
