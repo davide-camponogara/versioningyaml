@@ -143,7 +143,7 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 			if !val.IsValid() {
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
-					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+					Value:       "null", // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
@@ -153,9 +153,6 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
 				nextIndent = true
 			}
-			valueNode, err = GenerateYAMLobject(val.Interface())
-			keyNode.HeadComment = "\n" + keyNode.HeadComment
-			nextIndent = true
 		} else {
 			var val any
 			field := reflect.ValueOf(data).Field(i)
