@@ -189,6 +189,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 					if t, ok := val.(interface{ Config() string }); ok {
 						val = t.Config()
 					}
+					val = fmt.Sprintf("%v", val)
 				}
 			} else {
 				// Field is not valid (zero value), handle it appropriately
