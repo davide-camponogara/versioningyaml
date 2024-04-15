@@ -277,19 +277,19 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 		newValue := f(sourceConfig.Interface())
 		destField := destValue.FieldByName(fieldName)
 		if destField.IsValid() && destField.CanSet() {
-			destField.Set(reflect.ValueOf(newValue))
+			destField.Set(reflect.ValueOf(newValue).Convert(destField.Type()))
 		}
 	} else if fieldName == "Version" {
 		destField := destValue.FieldByName(fieldName)
 		if destField.IsValid() && destField.CanSet() {
-			destField.Set(reflect.ValueOf(version))
+			destField.Set(reflect.ValueOf(version).Convert(destField.Type()))
 		}
 	} else {
 		sourceField := sourceValue.FieldByName(fieldName)
 		if sourceField.IsValid() {
 			destField := destValue.FieldByName(fieldName)
 			if destField.IsValid() && destField.CanSet() {
-				destField.Set(sourceField)
+				destField.Set(sourceField.Convert(destField.Type()))
 			}
 		}
 	}
