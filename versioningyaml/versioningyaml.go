@@ -99,7 +99,6 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 		Kind: yaml.MappingNode,
 	}
 
-	nextIndent := false
 	// Iterate over the fields of the data struct
 	for i := 0; i < dataType.NumField(); i++ {
 		field := dataType.Field(i)
@@ -119,11 +118,6 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 			fieldName = strings.ToLower(field.Name) // Use the field name as the key if yaml tag is empty
 		}
 
-		if nextIndent {
-			commentTag = "\n" + commentTag // Put new linebe before start of new struct
-			nextIndent = false
-		}
-
 		// Create key node
 		keyNode := &yaml.Node{
 			Kind:        yaml.ScalarNode,
@@ -137,7 +131,6 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
 			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface())
 			keyNode.HeadComment = "\n" + keyNode.HeadComment
-			nextIndent = true
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
 			val := reflect.ValueOf(data).Field(i).Elem()
 			if !val.IsValid() {
@@ -147,7 +140,6 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 					LineComment: lineCommentTag,
 				}
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
-				nextIndent = true
 			} else {
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
