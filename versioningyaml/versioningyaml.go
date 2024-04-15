@@ -348,7 +348,7 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 		sourceField := sourceValue.FieldByName(fieldName)
 		if sourceField.IsValid() {
 			destField := destValue.FieldByName(fieldName)
-			valRef := reflect.ValueOf(destField)
+			valRef := sourceField
 			if valRef.Kind() == reflect.Map {
 				v, err := json.Marshal(valRef.Interface())
 				if err != nil {
@@ -356,7 +356,7 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 				}
 				valRef = reflect.ValueOf(string(v))
 			} else {
-				valRef = valRef.Convert(valRef.Type())
+				valRef = valRef.Convert(destField.Type())
 			}
 			if destField.IsValid() && destField.CanSet() {
 				destField.Set(valRef)
