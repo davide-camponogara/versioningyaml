@@ -1,7 +1,6 @@
 package versioningyaml
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -316,9 +315,6 @@ func MigrateOne(source interface{}, destination interface{}, migration utils.Cus
 }
 
 func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) error {
-	wrapErr := func(err error) error {
-		return fmt.Errorf("migrating one version: %w", err)
-	}
 	// get field name from dotted path
 	spl := strings.Split(fieldPath, ".")
 	fieldName := spl[len(spl)-1]
@@ -326,18 +322,8 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 	if f, ok := migration[fieldPath]; ok {
 		newValue := f(sourceConfig.Interface())
 		destField := destValue.FieldByName(fieldName)
-		valRef := reflect.ValueOf(newValue)
-		if valRef.Kind() == reflect.Map {
-			v, err := json.Marshal(newValue)
-			if err != nil {
-				return wrapErr(err)
-			}
-			valRef = reflect.ValueOf(string(v))
-		} else {
-			valRef = valRef.Convert(destField.Type())
-		}
 		if destField.IsValid() && destField.CanSet() {
-			destField.Set(valRef)
+			destField.Set(reflect.ValueOf(newValue).Convert(destField.Type()))
 		}
 	} else if fieldName == "Version" {
 		destField := destValue.FieldByName(fieldName)
@@ -348,18 +334,8 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 		sourceField := sourceValue.FieldByName(fieldName)
 		if sourceField.IsValid() {
 			destField := destValue.FieldByName(fieldName)
-			valRef := sourceField
-			if valRef.Kind() == reflect.Map {
-				v, err := json.Marshal(valRef.Interface())
-				if err != nil {
-					return wrapErr(err)
-				}
-				valRef = reflect.ValueOf(string(v))
-			} else {
-				valRef = valRef.Convert(destField.Type())
-			}
 			if destField.IsValid() && destField.CanSet() {
-				destField.Set(valRef)
+				destField.Set(sourceField.Convert(destField.Type()))
 			}
 		}
 	}
