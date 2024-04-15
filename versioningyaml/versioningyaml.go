@@ -139,7 +139,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				val = t.Config()
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
-					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+					Value:       val.(string), // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
 			} else {
@@ -177,9 +177,11 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				if field.Kind() == reflect.Ptr && field.IsNil() {
 					// Field is a nil pointer (likely representing null)
 					val = reflect.Zero(field.Type().Elem()).Interface()
+					val = fmt.Sprintf("%v", val)
 				} else if field.Kind() == reflect.Interface && field.IsNil() {
 					// Field is a nil interface{} (likely representing null)
 					val = nil
+					val = fmt.Sprintf("%v", val)
 				} else {
 					// Field is not nil, get its value
 					val = field.Interface()
@@ -192,11 +194,12 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				// Field is not valid (zero value), handle it appropriately
 				// For example, you might want to assign a default value to val
 				val = reflect.Zero(field.Type()).Interface()
+				val = fmt.Sprintf("%v", val)
 			}
 			// Create value node
 			valueNode = &yaml.Node{
 				Kind:        yaml.ScalarNode,
-				Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+				Value:       val.(string), // Get the field value from the struct
 				LineComment: lineCommentTag,
 			}
 		}
