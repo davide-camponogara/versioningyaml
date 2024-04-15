@@ -149,9 +149,11 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
 				nextIndent = true
 			} else {
-				valueNode, err = GenerateYAMLobject(val.Interface())
-				keyNode.HeadComment = "\n" + keyNode.HeadComment
-				nextIndent = true
+				valueNode = &yaml.Node{
+					Kind:        yaml.ScalarNode,
+					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+					LineComment: lineCommentTag,
+				}
 			}
 		} else {
 			var val any
