@@ -131,7 +131,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 		// If field is of type struct
 		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
 			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface(), level+1)
-			if level <= 1 {
+			if reflect.ValueOf(data).Field(i-1).Type().Kind() == reflect.Struct && level <= 1 {
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
 			}
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
@@ -142,7 +142,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 					Value:       "null", // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
-				if level <= 1 {
+				if reflect.ValueOf(data).Field(i-1).Type().Kind() == reflect.Struct && level <= 1 {
 					keyNode.HeadComment = "\n" + keyNode.HeadComment
 				}
 			} else {
@@ -183,7 +183,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			return nil, err
 		}
 
-		if i == dataType.NumField()-1 {
+		if reflect.ValueOf(data).Field(i-1).Type().Kind() != reflect.Struct {
 			valueNode.FootComment = "\n" + valueNode.FootComment
 		}
 
