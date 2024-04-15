@@ -144,10 +144,20 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 			var val any
 			field := reflect.ValueOf(data).Field(i)
 			if field.IsValid() {
-				// Field is valid, get its value
-				val = field.Interface()
+				// Check if the field is a pointer
+				if field.Kind() == reflect.Ptr && field.IsNil() {
+					// Field is a nil pointer (likely representing null)
+					val = reflect.Zero(field.Type().Elem()).Interface()
+				} else if field.Kind() == reflect.Interface && field.IsNil() {
+					// Field is a nil interface{} (likely representing null)
+					val = nil
+				} else {
+					// Field is not nil, get its value
+					val = field.Interface()
+				}
 			} else {
-				// Field is not valid (zero value), gets it zero value
+				// Field is not valid (zero value), handle it appropriately
+				// For example, you might want to assign a default value to val
 				val = reflect.Zero(field.Type()).Interface()
 			}
 			// Create value node
