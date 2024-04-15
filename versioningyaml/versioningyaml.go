@@ -356,7 +356,7 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 				}
 				valRef = reflect.ValueOf(string(v))
 			} else {
-				valRef = valRef.Convert(destField.Type())
+				valRef = valRef.Convert(valRef.Type())
 			}
 			if destField.IsValid() && destField.CanSet() {
 				destField.Set(valRef)
