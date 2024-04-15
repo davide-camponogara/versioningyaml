@@ -3,6 +3,7 @@ package versioningyaml
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -199,15 +200,14 @@ func LoadYAML(path string, object interface{}) error {
 	wrapErr := func(err error) error {
 		return fmt.Errorf("loading yaml: %w", err)
 	}
-	file, err := os.Open(path)
+
+	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return wrapErr(fmt.Errorf("error opening file: %w", err))
 	}
-	defer file.Close()
 
-	// Read the content of the file
-	decoder := yaml.NewDecoder(file)
-	if err := decoder.Decode(object); err != nil {
+	err = yaml.Unmarshal(bytes, object)
+	if err != nil {
 		return wrapErr(fmt.Errorf("error decoding YAML: %w", err))
 	}
 	return nil
