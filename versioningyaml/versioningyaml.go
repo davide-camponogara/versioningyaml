@@ -138,6 +138,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			if t, ok := val.(interface{ Config() string }); ok {
 				val = t.Config()
 				valueNode = &yaml.Node{
+					Style:       yaml.FlowStyle,
 					Kind:        yaml.ScalarNode,
 					Value:       val.(string), // Get the field value from the struct
 					LineComment: lineCommentTag,
