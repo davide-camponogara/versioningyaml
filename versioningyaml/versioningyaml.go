@@ -1,6 +1,7 @@
 package versioningyaml
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -137,6 +138,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			}
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
 			val := reflect.ValueOf(data).Field(i).Elem()
+			// if is not valid write null
 			if !val.IsValid() {
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
@@ -146,7 +148,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				if (i == 0 || reflect.ValueOf(data).Field(i-1).Type().Kind() != reflect.Struct) && level <= 1 {
 					keyNode.HeadComment = "\n" + keyNode.HeadComment
 				}
-			} else {
+			} else { // else vrite value
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
 					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
@@ -167,6 +169,10 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				} else {
 					// Field is not nil, get its value
 					val = field.Interface()
+					// if object has COnfig method for formatting
+					if t, ok := val.(interface{ Config() string }); ok {
+						val = t.Config()
+					}
 				}
 			} else {
 				// Field is not valid (zero value), handle it appropriately
@@ -272,9 +278,9 @@ func LoadConfigVersioned(path string) (utils.Config, int, error) {
 
 // Migrate apply migration from config source to config destination objects
 func MigrateOne(source interface{}, destination interface{}, migration utils.CustomMigration) error {
-	/*wrapErr := func(err error) error {
+	wrapErr := func(err error) error {
 		return fmt.Errorf("migrating one version: %w", err)
-	}*/
+	}
 	// Get the value of the destination struct
 	destValue := reflect.ValueOf(destination).Elem()
 
@@ -294,16 +300,25 @@ func MigrateOne(source interface{}, destination interface{}, migration utils.Cus
 		if field.Type.Kind() == reflect.Struct {
 			sourceStruct := sourceValue.FieldByName(fieldName)
 			destStruct := destValue.FieldByName(fieldName)
-			migrateStruct(sourceStruct, destStruct, fieldName, migration, sourceValue, destination.(utils.Config).V())
+			err := migrateStruct(sourceStruct, destStruct, fieldName, migration, sourceValue, destination.(utils.Config).V())
+			if err != nil {
+				return wrapErr(err)
+			}
 
 		} else { // if field is not of type struct
-			migrateField(sourceValue, destValue, fieldName, migration, sourceValue, destination.(utils.Config).V())
+			err := migrateField(sourceValue, destValue, fieldName, migration, sourceValue, destination.(utils.Config).V())
+			if err != nil {
+				return wrapErr(err)
+			}
 		}
 	}
 	return nil
 }
 
-func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) {
+func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) error {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("migrating one version: %w", err)
+	}
 	// get field name from dotted path
 	spl := strings.Split(fieldPath, ".")
 	fieldName := spl[len(spl)-1]
@@ -311,8 +326,18 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 	if f, ok := migration[fieldPath]; ok {
 		newValue := f(sourceConfig.Interface())
 		destField := destValue.FieldByName(fieldName)
+		valRef := reflect.ValueOf(newValue)
+		if valRef.Kind() == reflect.Map {
+			v, err := json.Marshal(newValue)
+			if err != nil {
+				return wrapErr(err)
+			}
+			valRef = reflect.ValueOf(string(v))
+		} else {
+			valRef = valRef.Convert(destField.Type())
+		}
 		if destField.IsValid() && destField.CanSet() {
-			destField.Set(reflect.ValueOf(newValue).Convert(destField.Type()))
+			destField.Set(valRef)
 		}
 	} else if fieldName == "Version" {
 		destField := destValue.FieldByName(fieldName)
@@ -323,14 +348,29 @@ func migrateField(sourceValue reflect.Value, destValue reflect.Value, fieldPath 
 		sourceField := sourceValue.FieldByName(fieldName)
 		if sourceField.IsValid() {
 			destField := destValue.FieldByName(fieldName)
+			valRef := reflect.ValueOf(destField)
+			if valRef.Kind() == reflect.Map {
+				v, err := json.Marshal(valRef.Interface())
+				if err != nil {
+					return wrapErr(err)
+				}
+				valRef = reflect.ValueOf(string(v))
+			} else {
+				valRef = valRef.Convert(destField.Type())
+			}
 			if destField.IsValid() && destField.CanSet() {
-				destField.Set(sourceField.Convert(destField.Type()))
+				destField.Set(valRef)
 			}
 		}
 	}
+	return nil
 }
 
-func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structName string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) {
+func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structName string, migration utils.CustomMigration, sourceConfig reflect.Value, version int) error {
+	wrapErr := func(err error) error {
+		return fmt.Errorf("migrating struct: %w", err)
+	}
+
 	for i := 0; i < destValue.NumField(); i++ {
 		field := destValue.Type().Field(i)
 		fieldName := field.Name
@@ -339,11 +379,18 @@ func migrateStruct(sourceValue reflect.Value, destValue reflect.Value, structNam
 		if field.Type.Kind() == reflect.Struct {
 			sourceStruct := sourceValue.FieldByName(fieldName)
 			destStruct := destValue.FieldByName(fieldName)
-			migrateStruct(sourceStruct, destStruct, structName+"."+fieldName, migration, sourceConfig, version)
+			err := migrateStruct(sourceStruct, destStruct, structName+"."+fieldName, migration, sourceConfig, version)
+			if err != nil {
+				return wrapErr(err)
+			}
 		} else { // if field is not of type struct
-			migrateField(sourceValue, destValue, structName+"."+fieldName, migration, sourceConfig, version)
+			err := migrateField(sourceValue, destValue, structName+"."+fieldName, migration, sourceConfig, version)
+			if err != nil {
+				return wrapErr(err)
+			}
 		}
 	}
+	return nil
 }
 
 func findByVersion(version int) (*utils.ConfigVersion, int) {
