@@ -64,7 +64,7 @@ func WriteYaml(data utils.Config, path string) error {
 		return fmt.Errorf("writing yaml: %w", err)
 	}
 	// Create a YAML nodes representation of the Address struct
-	yamlObject, err := GenerateYAMLobject(data)
+	yamlObject, err := GenerateYAMLobject(data, 0)
 	if err != nil {
 		return wrapErr(fmt.Errorf("error generating YAML: %w", err))
 	}
@@ -90,7 +90,8 @@ func WriteYaml(data utils.Config, path string) error {
 }
 
 // generateYAMLobject generates Node object formatted for a yaml file
-func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
+// gets level gor styling the black lines in comments
+func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 	// Get the type of the data
 	dataType := reflect.TypeOf(data)
 
@@ -129,8 +130,10 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 		var err error
 		// If field is of type struct
 		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
-			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface())
-			keyNode.HeadComment = "\n" + keyNode.HeadComment
+			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface(), level+1)
+			if level == 0 {
+				keyNode.HeadComment = "\n" + keyNode.HeadComment
+			}
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
 			val := reflect.ValueOf(data).Field(i).Elem()
 			if !val.IsValid() {
@@ -139,7 +142,9 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 					Value:       "null", // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
-				keyNode.HeadComment = "\n" + keyNode.HeadComment
+				if level == 0 {
+					keyNode.HeadComment = "\n" + keyNode.HeadComment
+				}
 			} else {
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
