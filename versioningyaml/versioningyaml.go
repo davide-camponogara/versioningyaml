@@ -183,6 +183,10 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			return nil, err
 		}
 
+		if i == dataType.NumField()-1 {
+			valueNode.FootComment = "\n" + valueNode.FootComment
+		}
+
 		// Append key and value nodes to the root node
 		rootNode.Content = append(rootNode.Content, keyNode, valueNode)
 	}
