@@ -127,11 +127,25 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			HeadComment: commentTag,
 		}
 
+		// ######## assign value #########
+
 		var valueNode *yaml.Node
 		var err error
 		// If field is of type struct
 		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
-			valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface(), level+1)
+			val := reflect.ValueOf(data).Field(i).Interface()
+			// if object has Config method for formatting
+			if t, ok := val.(interface{ Config() string }); ok {
+				val = t.Config()
+				valueNode = &yaml.Node{
+					Kind:        yaml.ScalarNode,
+					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
+					LineComment: lineCommentTag,
+				}
+			} else {
+				valueNode, err = GenerateYAMLobject(reflect.ValueOf(data).Field(i).Interface(), level+1)
+			}
+			// skip line
 			if (i == 0 || reflect.ValueOf(data).Field(i-1).Type().Kind() != reflect.Struct) && level <= 1 {
 				keyNode.HeadComment = "\n" + keyNode.HeadComment
 			}
@@ -144,17 +158,18 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 					Value:       "null", // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
+				// skip line
 				if (i == 0 || reflect.ValueOf(data).Field(i-1).Type().Kind() != reflect.Struct) && level <= 1 {
 					keyNode.HeadComment = "\n" + keyNode.HeadComment
 				}
-			} else { // else vrite value
+			} else { // else write value
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
 					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
 					LineComment: lineCommentTag,
 				}
 			}
-		} else {
+		} else { // else if field is a simple type
 			var val any
 			field := reflect.ValueOf(data).Field(i)
 			if field.IsValid() {
@@ -168,7 +183,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				} else {
 					// Field is not nil, get its value
 					val = field.Interface()
-					// if object has COnfig method for formatting
+					// if object has Config method for formatting
 					if t, ok := val.(interface{ Config() string }); ok {
 						val = t.Config()
 					}
@@ -189,6 +204,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			return nil, err
 		}
 
+		// skip line
 		if i == dataType.NumField()-1 {
 			valueNode.FootComment = "\n" + valueNode.FootComment
 		}
