@@ -140,7 +140,7 @@ func GenerateYAMLobject(data interface{}) (*yaml.Node, error) {
 			nextIndent = true
 		} else if field.Type.Kind() == reflect.Ptr { // If field is of type pointer
 			val := reflect.ValueOf(data).Field(i).Elem()
-			if val.Type().Kind() == reflect.UnsafePointer {
+			if val.IsZero() {
 				valueNode = &yaml.Node{
 					Kind:        yaml.ScalarNode,
 					Value:       fmt.Sprintf("%v", val), // Get the field value from the struct
