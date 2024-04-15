@@ -183,7 +183,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			return nil, err
 		}
 
-		if i == dataType.NumField()-1 {
+		if i == dataType.NumField()-1 && level <= 1 {
 			valueNode.FootComment = "\n" + valueNode.FootComment
 		}
 
