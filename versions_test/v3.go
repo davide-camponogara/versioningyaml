@@ -14,6 +14,7 @@ type ConfigV3 struct {
 	City     string  `yaml:"city" comment:"Test comment for city" lineComment:"test"`
 	TestV3   float32 `yaml:"testv3" comment:"test v3"`
 	TestV3_2 float32 `yaml:"testv3_2" comment:"test v3"`
+	Test     []int   `short:""`
 }
 
 func (ConfigV3) V() int {

@@ -1,11 +1,13 @@
 package versioningyaml
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/davide-camponogara/versioningyaml/utils"
@@ -69,9 +71,35 @@ func WriteYaml(data utils.Config, path string) error {
 	if err != nil {
 		return wrapErr(fmt.Errorf("error generating YAML: %w", err))
 	}
+
 	yamlBytes, err := yaml.Marshal(yamlObject)
 	if err != nil {
 		return wrapErr(fmt.Errorf("error marshalling YAML: %w", err))
+	}
+
+	// Convert bytes to string
+	yamlString := string(yamlBytes)
+
+	// Define regular expression pattern to find occurrences of ": " + "(.*?)"
+	pattern := regexp.MustCompile(`:\s*'(.*?)'`)
+
+	// Find all matches
+	matches := pattern.FindAllStringSubmatch(yamlString, -1)
+
+	// Iterate through matches
+	for _, match := range matches {
+		data := match[1] // Captured group 1 contains the data
+
+		// Check if the data is valid JSON
+		if isValidJSON(data) {
+			// Process the data here
+			fmt.Println("Found and validated:", data)
+
+			// Replace the occurrence in the YAML string with the validated JSON
+			yamlString = strings.Replace(yamlString, `: '`+data+`'`, `: `+data, 1)
+		} else {
+			fmt.Println("Found but not validated as JSON:", data)
+		}
 	}
 
 	// Write the YAML to a file
@@ -81,7 +109,7 @@ func WriteYaml(data utils.Config, path string) error {
 	}
 	defer file.Close()
 
-	_, err = file.Write(yamlBytes)
+	_, err = file.Write([]byte(yamlString))
 	if err != nil {
 		return wrapErr(fmt.Errorf("error writing YAML to file: %w", err))
 	}
@@ -93,6 +121,10 @@ func WriteYaml(data utils.Config, path string) error {
 // generateYAMLobject generates Node object formatted for a yaml file
 // gets level gor styling the black lines in comments
 func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
+	var fieldName string
+	wrapErr := func(err error) error {
+		return fmt.Errorf("generating yaml field %v : %w", fieldName, err)
+	}
 	// Get the type of the data
 	dataType := reflect.TypeOf(data)
 
@@ -106,6 +138,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 		field := dataType.Field(i)
 		commentTag := field.Tag.Get("comment")         // Get the comment tag value
 		lineCommentTag := field.Tag.Get("lineComment") // Get the lineComment tag value
+		_, isJson := field.Tag.Lookup("short")         // Get short flag
 
 		if com, ok := longComments[commentTag]; ok { // Check if comment is key of a long comment and subsitute it
 			commentTag = com
@@ -115,7 +148,7 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 			lineCommentTag = com
 		}
 
-		fieldName := field.Tag.Get("yaml") // Get the yaml tag value
+		fieldName = field.Tag.Get("yaml") // Get the yaml tag value
 		if fieldName == "" {
 			fieldName = strings.ToLower(field.Name) // Use the field name as the key if yaml tag is empty
 		}
@@ -131,8 +164,20 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 
 		var valueNode *yaml.Node
 		var err error
-		// If field is of type struct
-		if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct {
+		// if set to output in json marshal object directly in json
+		if isJson {
+			val := reflect.ValueOf(data).Field(i).Interface()
+			valJson, err := json.Marshal(val)
+			if err != nil {
+				return nil, wrapErr(err)
+			}
+			valueNode = &yaml.Node{
+				Style:       yaml.FlowStyle,
+				Kind:        yaml.ScalarNode,
+				Value:       string(valJson), // Get the field value from the struct
+				LineComment: lineCommentTag,
+			}
+		} else if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct { // If field is of type struct
 			val := reflect.ValueOf(data).Field(i).Interface()
 			// if object has Config method for formatting
 			if t, ok := val.(interface{ Config() string }); ok {
@@ -231,12 +276,19 @@ func LoadYAML(path string, object interface{}) error {
 	if err != nil {
 		return wrapErr(fmt.Errorf("error opening file: %w", err))
 	}
-
-	err = yaml.Unmarshal(bytes, object)
+	// Unmarshal the modified YAML string
+	err = yaml.Unmarshal([]byte(bytes), object)
 	if err != nil {
 		return wrapErr(fmt.Errorf("error decoding YAML: %w", err))
 	}
 	return nil
+}
+
+// isValidJSON checks if a string is valid JSON
+func isValidJSON(s string) bool {
+	fmt.Println(s)
+	var js interface{}
+	return json.Unmarshal([]byte(s), &js) == nil
 }
 
 // getVersion returns version of config file

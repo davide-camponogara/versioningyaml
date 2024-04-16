@@ -11,6 +11,11 @@ The module exposes the functions:
 - MigrateUp: to migrate UP of a certain number of versions
 - MigrateDown to migrate DOWN of a certain number of versions
 
+Available tags:
+- "comment": places a comment over the row
+- "lineComment": places an inline comment
+- "short": converts the field in json format (works only for array and maps)
+
 
 
 
