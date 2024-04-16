@@ -16,6 +16,20 @@ Available tags:
 - "lineComment": places an inline comment
 - "short": converts the field in json format (works only for array and maps)
 
+In order to produce a custom format for the marshalling of an objects it is sufficient to write a 
+`(object) Config() string` method that outputs the value to be printed in the yaml.
+
+Example:
+```go
+func (curve BeltCurve) Config() string {
+	return fmt.Sprintf("[%.3f, %.3f, %.3f]", curve.Acc, curve.Speed, curve.LowSpeed)
+}
+```
+that produces:
+```
+beltcurve: [23,45,234]
+```
+
 
 
 
