@@ -92,13 +92,8 @@ func WriteYaml(data utils.Config, path string) error {
 
 		// Check if the data is valid JSON
 		if isValidJSON(data) {
-			// Process the data here
-			fmt.Println("Found and validated:", data)
-
 			// Replace the occurrence in the YAML string with the validated JSON
 			yamlString = strings.Replace(yamlString, `: '`+data+`'`, `: `+data, 1)
-		} else {
-			fmt.Println("Found but not validated as JSON:", data)
 		}
 	}
 
@@ -286,7 +281,6 @@ func LoadYAML(path string, object interface{}) error {
 
 // isValidJSON checks if a string is valid JSON
 func isValidJSON(s string) bool {
-	fmt.Println(s)
 	var js interface{}
 	return json.Unmarshal([]byte(s), &js) == nil
 }
