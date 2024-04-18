@@ -9,12 +9,12 @@ import (
 )
 
 type ConfigV3 struct {
-	Version  int32   `yaml:"version"`
-	Street   Street  `yaml:"street" comment:"$comm1"`
-	City     string  `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-	TestV3   float32 `yaml:"testv3" comment:"test v3"`
-	TestV3_2 float32 `yaml:"testv3_2" comment:"test v3"`
-	Test     []int   `short:""`
+	Version  int32        `yaml:"version"`
+	Street   Street       `yaml:"street" comment:"$comm1"`
+	City     string       `yaml:"city" comment:"Test comment for city" lineComment:"test"`
+	TestV3   float32      `yaml:"testv3" comment:"test v3"`
+	TestV3_2 float32      `yaml:"testv3_2" comment:"test v3"`
+	Test     map[int]bool `short:""`
 }
 
 func (ConfigV3) V() int {

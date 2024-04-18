@@ -1,6 +1,7 @@
 package versioningyaml
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,6 +54,14 @@ func SetDefaultVersion(defVersion int) {
 // by convenction a reference to a long comment is denoted with a $ in form of the name
 var longComments map[string]string
 
+// indent is the indendtation spaces
+var indent int = 3
+
+// SetIndent setter for indent (default 3)
+func SetIndent(indentation int) {
+	indent = indentation
+}
+
 // SetLongComments setter for LongComments
 //
 // LongComments is a map containing long comments
@@ -72,13 +81,18 @@ func WriteYaml(data utils.Config, path string) error {
 		return wrapErr(fmt.Errorf("error generating YAML: %w", err))
 	}
 
-	yamlBytes, err := yaml.Marshal(yamlObject)
-	if err != nil {
-		return wrapErr(fmt.Errorf("error marshalling YAML: %w", err))
+	// Create a buffer to write YAML to
+	var b bytes.Buffer
+	yamlEncoder := yaml.NewEncoder(&b)
+	yamlEncoder.SetIndent(indent)
+
+	// Encode YAML object to the buffer
+	if err := yamlEncoder.Encode(yamlObject); err != nil {
+		return wrapErr(fmt.Errorf("error encoding YAML: %w", err))
 	}
 
-	// Convert bytes to string
-	yamlString := string(yamlBytes)
+	// Convert buffer to string
+	yamlString := b.String()
 
 	// Define regular expression pattern to find occurrences of ": " + "(.*?)"
 	pattern := regexp.MustCompile(`:\s*'(.*?)'`)
@@ -104,7 +118,7 @@ func WriteYaml(data utils.Config, path string) error {
 	}
 	defer file.Close()
 
-	_, err = file.Write([]byte(yamlString))
+	_, err = file.WriteString(yamlString)
 	if err != nil {
 		return wrapErr(fmt.Errorf("error writing YAML to file: %w", err))
 	}

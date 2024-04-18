@@ -8,7 +8,7 @@ type ConfigV2 struct {
 	Version int    `yaml:"version"`
 	Street  Street `yaml:"street" comment:"$comm1"`
 	City    string `yaml:"city" comment:"Test comment for city" lineComment:"test"`
-	Test    []int
+	Test    map[int]bool
 }
 
 func (ConfigV2) V() int {
