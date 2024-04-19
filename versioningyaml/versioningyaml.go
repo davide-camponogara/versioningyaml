@@ -127,6 +127,17 @@ func WriteYaml(data utils.Config, path string) error {
 	return nil
 }
 
+// formatJson fix spaces in json format (needed to yaml unmarshaling) and
+// does fixes for particular types
+func formatJson(jsonData string, t reflect.Type) string {
+	modJson := strings.ReplaceAll(jsonData, `":`, `": `)
+	if t.Kind() == reflect.Map && t.Key().Kind() == reflect.Int {
+		re := regexp.MustCompile(`"(\d+)": `)
+		modJson = re.ReplaceAllString(modJson, `$1: `)
+	}
+	return modJson
+}
+
 // generateYAMLobject generates Node object formatted for a yaml file
 // gets level gor styling the black lines in comments
 func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
@@ -181,9 +192,9 @@ func GenerateYAMLobject(data interface{}, level int) (*yaml.Node, error) {
 				return nil, wrapErr(err)
 			}
 			valueNode = &yaml.Node{
-				Style:       yaml.FlowStyle,
+				Style:       yaml.SingleQuotedStyle,
 				Kind:        yaml.ScalarNode,
-				Value:       string(valJson), // Get the field value from the struct
+				Value:       formatJson(string(valJson), reflect.ValueOf(data).Field(i).Type()), // Get the field value from the struct
 				LineComment: lineCommentTag,
 			}
 		} else if reflect.ValueOf(data).Field(i).Type().Kind() == reflect.Struct { // If field is of type struct
@@ -296,6 +307,8 @@ func LoadYAML(path string, object interface{}) error {
 // isValidJSON checks if a string is valid JSON
 func isValidJSON(s string) bool {
 	var js interface{}
+	re := regexp.MustCompile(`(\d+): `)
+	s = re.ReplaceAllString(s, `"$1": `)
 	return json.Unmarshal([]byte(s), &js) == nil
 }
 
